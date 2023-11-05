@@ -1,0 +1,80 @@
+version: '3'
+services:
+  hiveserver:
+    image:  apache/hive:4.0.0-beta-1
+    container_name: hiveserver2-standalone
+    env_file:
+      - .env
+    environment:
+      SERVICE_NAME: "hiveserver2"
+      SERVICE_OPTS: "-Dhive.metastore.uris=thrift://metastore:9083"
+      IS_RESUME: "true"
+    ports:
+      - "10002:10002"
+      - "10000:10000"
+    networks:
+      - hive
+    depends_on:
+      - metastore
+    volumes:
+      - ./target/lib/hadoop-common-3.3.6.jar:/opt/hive/lib/hadoop-common-3.3.6.jar
+      - ./target/lib/hadoop-aws-3.3.6.jar:/opt/hive/lib/hadoop-aws-3.3.6.jar
+      - ./target/lib/aws-java-sdk-bundle-1.12.367.jar:/opt/hive/lib/aws-java-sdk-bundle-1.12.367.jar
+      - ./conf/hive-site.xml:/opt/hive/conf/hive-site.xml
+      - ./data/eletric_vehicle_population.hql:/eletric_vehicle_population.hql
+  metastore:
+    image:  apache/hive:4.0.0-beta-1
+    container_name: metastore-standalone
+    env_file:
+      - .env
+    environment:
+      SERVICE_NAME: "metastore"
+      DB_DRIVER: "postgres"
+      SERVICE_OPTS: "-Djavax.jdo.option.ConnectionDriverName=org.postgresql.Driver -Djavax.jdo.option.ConnectionURL=jdbc:postgresql://postgres:5432/metastore_db -Djavax.jdo.option.ConnectionUserName=hive -Djavax.jdo.option.ConnectionPassword=hive_metastore@"
+    ports:
+      - "9083:9083"
+    networks:
+      - hive
+    depends_on:
+      - postgres
+    volumes:
+      - ./target/lib/postgresql-42.6.0.jar:/opt/hive/lib/postgresql-42.6.0.jar
+      - ./target/lib/hadoop-common-3.3.6.jar:/opt/hive/lib/hadoop-common-3.3.6.jar
+      - ./target/lib/hadoop-aws-3.3.6.jar:/opt/hive/lib/hadoop-aws-3.3.6.jar
+      - ./target/lib/aws-java-sdk-bundle-1.12.367.jar:/opt/hive/lib/aws-java-sdk-bundle-1.12.367.jar
+      - warehouse:/opt/hive/data/warehouse
+  postgres:
+    image: postgres:16
+    container_name: postgres
+    environment:
+      POSTGRES_USER: "hive"
+      POSTGRES_DB: "metastore_db"
+      POSTGRES_PASSWORD: "hive_metastore@"
+    ports:
+      - "5432:5432"
+    networks:
+      - hive
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+  dbgate:
+    image: dbgate/dbgate
+    container_name: dbgate
+    environment:
+      CONNECTIONS: "con1"
+      LABEL_con1: "metastore_db"
+      SERVER_con1: "postgres"
+      USER_con1: "hive"
+      PASSWORD_con1: "hive_metastore@"
+      PORT_con1: "5432"
+      ENGINE_con1: "postgres@dbgate-plugin-postgres"
+    ports:
+      - "3000:3000"
+    networks:
+      - hive
+
+networks:
+  hive:
+  
+volumes:
+  postgres_data: # this volume persists the metadata of Hive tables inside Postgres container.
+  warehouse: # this volume stores tables' files inside HiveServer2 container.
