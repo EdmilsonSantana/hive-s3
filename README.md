@@ -18,7 +18,7 @@ As a prerequisite you will need:
 With Docker installed and running you have to copy the required dependencies to `target/lib` folder and finally run Apache Hive executing:
 
 ```
-mvn dependency:copy-dependencies
+.\mvnw dependency:copy-dependencies
 docker-compose up -d
 ```
 
